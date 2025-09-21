@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>二分查找 · 寻宝可视化（本地版）</title>
+  <!-- 说明：单文件即可本地运行；无需安装依赖。双击本文件或用浏览器打开即可。 -->
+  <!-- React & ReactDOM（CDN） -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <!-- framer-motion（可选动画） -->
+  <script crossorigin src="https://unpkg.com/framer-motion/dist/framer-motion.umd.js"></script>
+  <!-- Babel（在浏览器中编译 JSX） -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b1020;           /* 深色背景 */
+      --panel:#11172b;        /* 面板底色 */
+      --panel-2:#0e1527;      /* 次级面板 */
+      --text:#e6edf3;         /* 主文字 */
+      --muted:#9fb0c0;        /* 次文字 */
+      --brand:#4ea1ff;        /* 品牌蓝 */
+      --brand-2:#90c2ff;
+      --ok:#2ecc71;
+      --warn:#ffd166;
+      --danger:#ef476f;
+      --grid:#1a2036;
+      --chip:#15213c;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--text); background: radial-gradient(1000px 600px at 10% -10%, #11214a 0%, #0b1020 40%),
+                         radial-gradient(800px 600px at 90% 0%, #1d2d5a 0%, #0b1020 50%),
+                         linear-gradient(180deg, #0b1020 0%, #0b1020 100%);
+      letter-spacing:.2px;
+    }
+    .container{max-width:1200px;margin:32px auto;padding:0 16px}
+    .title{display:flex;align-items:center;gap:12px;font-size:22px;font-weight:700}
+    .card{background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+          border:1px solid rgba(255,255,255,.08); border-radius:var(--radius); box-shadow:var(--shadow)}
+    .card-header{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .card-body{padding:20px}
+    .row{display:grid; grid-template-columns:1fr; gap:16px}
+    @media(min-width:900px){ .row{ grid-template-columns:1fr 1fr } }
+
+    .control{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:var(--panel)}
+    .control .line{display:flex;align-items:center;gap:10px;margin:10px 0}
+    .label{width:120px;font-size:12px;color:var(--muted)}
+    input[type="number"], input[type="text"], .btn, .range{font:inherit}
+    input[type="number"], input[type="text"]{width:90px;padding:6px 8px;border-radius:10px;background:#0a1226;border:1px solid #233052;color:var(--text)}
+    .switch{appearance:none;width:44px;height:24px;border-radius:999px;background:#243250;position:relative;cursor:pointer;outline:none;border:1px solid #2f3e64}
+    .switch:checked{background:#1f6fe0}
+    .switch:before{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:transform .25s ease}
+    .switch:checked:before{transform:translateX(20px)}
+    .range{flex:1}
+
+    .btn{padding:8px 12px;border-radius:12px;border:1px solid #2a3b64;background:linear-gradient(180deg,#162446,#0e1a36);color:#dbe9ff;cursor:pointer;transition:transform .05s ease, filter .2s}
+    .btn:hover{filter:brightness(1.1)}
+    .btn:active{transform:translateY(1px)}
+    .btn.secondary{background:linear-gradient(180deg,#0d2546,#0b1c35);border-color:#22406c;color:#cfe2ff}
+    .btn.outline{background:transparent;border-color:#2b3c64}
+    .btn.ghost{background:transparent;border-color:transparent;color:#9fb0c0}
+    .btn.danger{border-color:#613047;background:linear-gradient(180deg,#42192e,#2b1221);color:#ffb3c7}
+
+    .hint{font-size:12px;color:var(--muted)}
+    .message{margin-top:8px;font-size:13px;color:#d6e6ff}
+
+    .viz{position:relative;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:linear-gradient(180deg,#0c1428,#0a1226);padding:16px;overflow:hidden}
+    .rangebar{position:relative;height:10px;border-radius:999px;background:#091126;box-shadow:inset 0 0 0 1px rgba(255,255,255,.04)}
+    .rangebar .fill{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#3c7cff,#5aa8ff);border-radius:999px;box-shadow:0 0 0 3px rgba(78,161,255,.2)}
+    .rangebar .tag{position:absolute;top:-18px;font-size:10px;color:#a9bed3}
+
+    .grid{display:grid;grid-template-columns:repeat(8,1fr);gap:10px;place-items:center;margin-top:14px}
+    @media(min-width:900px){ .grid{ grid-template-columns:repeat(15,1fr) } }
+
+    .cell{display:flex;align-items:center;justify-content:center;height:44px;width:44px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:#0e152b;color:#cfe2ff;font-weight:600;transition:all .25s ease}
+    .cell.mid{background:#2a5bb5;color:white;box-shadow:0 8px 20px rgba(46,110,229,.35)}
+    .cell.inrange{background:#10244b;border-color:#3a5ea0;box-shadow:0 0 0 2px rgba(78,161,255,.16) inset}
+    .cell.visited{background:#141b2f;color:#9ab1c9}
+    .cell.found{background:#29a36a;color:#fff;transform:scale(1.06);box-shadow:0 10px 24px rgba(41,163,106,.4)}
+    .marker{height:14px;font-size:10px;color:#8aa3bf}
+
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px 6px;text-align:left}
+    thead th{color:#9fb0c0;font-weight:600}
+    tbody tr{border-top:1px solid rgba(255,255,255,.06)}
+
+    .tips{font-size:13px;color:#cfe2ff;background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;background:#0b142a;border:1px solid #2a3a63;border-radius:6px;padding:1px 6px;color:#b6d3ff}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="app"></div>
+  </div>
+
+  <script type="text/babel">
+    const { useEffect, useMemo, useRef, useState } = React;
+    const { motion, AnimatePresence } = window.framerMotion || {};
+
+    function clsx(...xs){ return xs.filter(Boolean).join(' '); }
+
+    function BinarySearchTreasure(){
+      const [n, setN] = useState(15);
+      const [target, setTarget] = useState(null); // null 表示“可能不存在”的模式下的缺失用例
+      const [allowNotFound, setAllowNotFound] = useState(false);
+      const [speed, setSpeed] = useState(600);
+      const [autoPlay, setAutoPlay] = useState(false);
+
+      const [low, setLow] = useState(1);
+      const [high, setHigh] = useState(n);
+      const [mid, setMid] = useState(null);
+      const [foundIndex, setFoundIndex] = useState(null);
+      const [visited, setVisited] = useState(new Set());
+      const [steps, setSteps] = useState([]);
+      const [message, setMessage] = useState('点击“随机目标”开始，或自定义目标。');
+
+      const timerRef = useRef(null);
+      const cells = useMemo(()=>Array.from({length:n}, (_,i)=>i+1),[n]);
+
+      // 边界动画提示（无需库，以简单重渲染为主）
+      const prev = useRef({ low, high, mid });
+      useEffect(()=>{ prev.current = {low, high, mid}; }, [low,high,mid]);
+
+      function reset(keepTarget=true){
+        setLow(1); setHigh(n); setMid(null); setVisited(new Set()); setFoundIndex(null); setSteps([]);
+        setMessage('已重置。点击“单步”或“自动播放”。');
+        if(!keepTarget) setTarget(null);
+      }
+
+      function randomizeTarget(){
+        if(allowNotFound && Math.random() < 0.2){
+          setTarget(null);
+          setMessage('目标：不存在（缺失用例）');
+        }else{
+          const t = Math.floor(Math.random()*n)+1; setTarget(t);
+          setMessage(`目标位置已随机设置（隐藏）：1~${n}`);
+        }
+        reset(true);
+      }
+
+      function setBoundaryCase(type){
+        if(type==='first'){ setTarget(1); reset(true); setMessage('边界用例：首位 (1)'); }
+        else if(type==='last'){ setTarget(n); reset(true); setMessage(`边界用例：末位 (${n})`); }
+        else { setTarget(null); reset(true); setMessage('边界用例：目标不存在'); }
+      }
+
+      function stepOnce(){
+        if(foundIndex!==null) return;
+        if(low>high){
+          setSteps(p=>[...p, {low, mid: mid ?? -1, high, verdict:'未找到'}]);
+          setMessage('查找结束：未找到（low > high）。');
+          return;
+        }
+        const m = low + Math.floor((high - low)/2);
+        setMid(m);
+        setVisited(p=>{const s=new Set(p); s.add(m); return s;});
+
+        if(target===m){
+          setSteps(p=>[...p, {low, mid:m, high, verdict:'在这里'}]);
+          setFoundIndex(m);
+          setMessage(`在位置 ${m} 找到宝藏！`);
+        }else if(target===null || target < m){
+          setSteps(p=>[...p, {low, mid:m, high, verdict:'左边'}]);
+          setHigh(m-1);
+          setMessage(`目标在左边（收缩为 [${low}, ${m-1}]）`);
+        }else{
+          setSteps(p=>[...p, {low, mid:m, high, verdict:'右边'}]);
+          setLow(m+1);
+          setMessage(`目标在右边（收缩为 [${m+1}, ${high}]）`);
+        }
+      }
+
+      // 自动播放
+      useEffect(()=>{
+        if(!autoPlay){ if(timerRef.current) clearTimeout(timerRef.current); timerRef.current=null; return; }
+        const tick=()=>{ stepOnce(); timerRef.current = setTimeout(tick, speed); };
+        timerRef.current = setTimeout(tick, speed);
+        return ()=>{ if(timerRef.current) clearTimeout(timerRef.current); };
+      }, [autoPlay, speed, low, high, foundIndex, target]);
+
+      // n 改变时重置区间
+      useEffect(()=>{ setLow(1); setHigh(n); setMid(null); setVisited(new Set()); setFoundIndex(null); setSteps([]); }, [n]);
+
+      function Cell({ idx }){
+        const inRange = idx>=low && idx<=high && foundIndex===null;
+        const isMid   = mid===idx && foundIndex===null;
+        const isVisited = visited.has(idx);
+        const isFound = foundIndex===idx;
+        return (
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+            <div className={clsx('cell', inRange && 'inrange', isVisited && 'visited', isMid && 'mid', isFound && 'found')}>{idx}</div>
+            <div className="marker">
+              {idx===low && idx===high ? 'L/H' : idx===low ? 'L' : idx===high ? 'H' : idx===mid ? 'M' : ''}
+            </div>
+          </div>
+        );
+      }
+
+      // 顶部范围条
+      function RangeBar(){
+        const leftPct  = ((low-1)/n)*100;
+        const widthPct = (Math.max(0, high-low+1)/n)*100;
+        return (
+          <div className="rangebar">
+            <div className="fill" style={{ left: leftPct+'%', width: widthPct+'%' }}></div>
+            <div className="tag" style={{ left: `calc(${leftPct}% - 6px)` }}>L</div>
+            <div className="tag" style={{ left: `calc(${(high/n)*100}% - 6px)` }}>H</div>
+            {mid!=null && <div className="tag" style={{ top:'14px', left:`calc(${(mid/n)*100}% - 6px)` }}>M</div>}
+          </div>
+        );
+      }
+
+      return (
+        <div className="card" style={{overflow:'hidden'}}>
+          <div className="card-header">
+            <div className="title">🎯 二分查找 · 寻宝可视化（本地版）</div>
+          </div>
+          <div className="card-body">
+            <div className="row">
+              <div className="control">
+                <div className="line">
+                  <div className="label">藏宝点数量</div>
+                  <input className="range" type="range" min="5" max="40" step="1" value={n}
+                         onChange={e=>setN(parseInt(e.target.value||'15',10))} />
+                  <input type="number" value={n}
+                         onChange={e=>setN(Math.max(1, Math.min(200, Number(e.target.value)||1)))} />
+                </div>
+                <div className="line">
+                  <div className="label">播放速度(ms)</div>
+                  <input className="range" type="range" min="200" max="1500" step="50" value={speed}
+                         onChange={e=>setSpeed(parseInt(e.target.value||'600',10))} />
+                  <input type="number" value={speed}
+                         onChange={e=>setSpeed(Math.max(50, Math.min(3000, Number(e.target.value)||600)))} />
+                </div>
+                <div className="line">
+                  <input id="nf" className="switch" type="checkbox" checked={allowNotFound}
+                         onChange={e=>setAllowNotFound(e.target.checked)} />
+                  <label htmlFor="nf" className="hint">允许“目标不存在”的练习</label>
+                </div>
+                <div className="line" style={{flexWrap:'wrap', gap:8}}>
+                  <button className="btn secondary" onClick={randomizeTarget}>🔀 随机目标</button>
+                  <button className="btn outline" onClick={()=>{ if(target!=null){ setMessage(`已设置目标：${target}`);} else { setMessage('目标：不存在'); } }}>显示当前设定</button>
+                  <button className="btn outline" onClick={()=>setBoundaryCase('first')}>首位</button>
+                  <button className="btn outline" onClick={()=>setBoundaryCase('last')}>末位</button>
+                  <button className="btn danger" onClick={()=>setBoundaryCase('absent')}>目标不存在</button>
+                </div>
+              </div>
+
+              <div className="control">
+                <div className="hint" style={{marginBottom:6}}>查找控制</div>
+                <div className="line" style={{flexWrap:'wrap', gap:8}}>
+                  <button className="btn" onClick={()=>setAutoPlay(s=>!s)}>{autoPlay ? '⏸ 暂停' : '▶ 自动播放'}</button>
+                  <button className="btn outline" onClick={stepOnce}>⏭ 单步</button>
+                  <button className="btn outline" onClick={()=>reset(true)}>🔄 重置</button>
+                  <button className="btn ghost" onClick={()=>reset(false)}>重置并清空目标</button>
+                </div>
+                <div className="message">{message}</div>
+                <div className="hint" style={{marginTop:6}}>提示：循环条件使用 <span className="kbd">low ≤ high</span>，中点 <span className="kbd">mid = low + (high - low) // 2</span>。</div>
+              </div>
+            </div>
+
+            <div className="viz" style={{marginTop:16}}>
+              <RangeBar />
+              <div className="grid">
+                {cells.map(idx => <Cell key={idx} idx={idx} />)}
+              </div>
+              <div className="hint" style={{marginTop:10}}>
+                范围：[{low} , {high}] {foundIndex!==null ? ` → 结束：在 ${foundIndex} 处找到或确认不存在` : ''}
+              </div>
+            </div>
+
+            <div className="control" style={{marginTop:16}}>
+              <div style={{fontSize:14,fontWeight:600, marginBottom:8}}>步骤记录</div>
+              <div style={{overflowX:'auto'}}>
+                <table>
+                  <thead>
+                    <tr><th>#</th><th>low</th><th>mid</th><th>high</th><th>反馈</th></tr>
+                  </thead>
+                  <tbody>
+                    {steps.length===0 ? (
+                      <tr><td colSpan="5" className="hint">暂无记录</td></tr>
+                    ) : steps.map((s,i)=> (
+                      <tr key={i}>
+                        <td>{i+1}</td>
+                        <td>{s.low}</td>
+                        <td>{s.mid}</td>
+                        <td>{s.high}</td>
+                        <td>{s.verdict}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="hint" style={{marginTop:8}}>课堂提问建议：为何循环条件应为 <span className="kbd">low ≤ high</span> 而不是 <span className="kbd">low &lt; high</span>？如何避免死循环？</div>
+            </div>
+
+            <div className="tips" style={{marginTop:16}}>
+              <strong>课堂使用建议</strong>：1) 用“随机目标”快速生成多个用例；2) 打开“允许目标不存在”训练返回 -1 的语义；3) 通过“单步/自动播放”切换，观察 <span className="kbd">low/high/mid</span> 的变化；4) 步骤表可作为出门条依据。
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('app'));
+    root.render(<BinarySearchTreasure/>);
+  </script>
+</body>
+</html>
